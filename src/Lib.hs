@@ -2,6 +2,7 @@
 
 module Lib where
 
+import Control.Arrow hiding (first, second)
 import Data.Bifunctor
 import Data.Char
 import Control.Lens
@@ -46,14 +47,24 @@ many p =
 pprint :: Monoid s => Parser s a -> a -> s
 pprint p = review p . (, mempty)
 
-apP :: Monoid s => Parser s a -> Parser s b -> Parser s (a, b)
-apP pa pb =
+tupleP :: Monoid s => Parser s a -> Parser s b -> Parser s (a, b)
+tupleP pa pb =
   prism' (\((a, b), s) ->
     let s' = review pb (b, s)
      in review pa (a, s')
     ) $ \s -> do
-  (a, s') <- preview pa s
+  (a, s')  <- preview pa s
   (b, s'') <- preview pb s'
   pure ((a, b), s'')
 
+
+firstP :: Prism' s (a, b) -> Iso' a a' -> Prism' s (a', b)
+firstP p i = prism' (\z -> review p $ z & _1 %~ view (from i)) $ \s -> do
+  z <- preview p s
+  pure $ z & _1 %~ view i
+
+
+string :: String -> Parser String String
+string "" = iso ("",) fst
+string (a : as) = firstP (tupleP (char a) (string as)) $ iso (uncurry (:)) (head &&& tail)
 
