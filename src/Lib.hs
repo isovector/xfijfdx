@@ -46,6 +46,14 @@ many p =
 pprint :: Monoid s => Parser s a -> a -> s
 pprint p = review p . (, mempty)
 
--- apP :: Parser s (a -> b) -> Parser s a -> Parser s b
--- apP f a = prism' (\(b, s) -> rev) undefined
+apP :: Monoid s => Parser s a -> Parser s b -> Parser s (a, b)
+apP pa pb =
+  prism' (\((a, b), s) ->
+    let s' = review pb (b, s)
+     in review pa (a, s')
+    ) $ \s -> do
+  (a, s') <- preview pa s
+  (b, s'') <- preview pb s'
+  pure ((a, b), s'')
+
 
