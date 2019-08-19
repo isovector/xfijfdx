@@ -67,16 +67,19 @@ many p = isoP fuck you_chris
       fmap ((<> s) . fold)
         $ traverse (review p . Just . (, mempty)) as
 
--- tupleP :: Monoid s => Parser s a -> Parser s b -> Parser s (a, b)
--- tupleP pa pb =
---   prism' (\((a, b), s) ->
---     let s' = review pb (b, s)
---      in review pa (a, s')
---     ) $ \s -> do
---   (a, s')  <- preview pa s
---   (b, s'') <- preview pb s'
---   pure ((a, b), s'')
+tupleP :: forall s a b. Monoid s => Parser s a -> Parser s b -> Parser s (a, b)
+tupleP pa pb = isoP to' from'
+  where
+    to' :: s -> Maybe ((a, b), s)
+    to' s = do
+        (a, s') <- Just s ^. pa
+        (b, s'') <- Just s' ^. pb
+        return ((a, b), s'')
 
+    from' :: ((a, b), s) -> Maybe s
+    from' ((a, b), s) = do
+        s' <- review pb (Just (b, s))
+        review pa (Just (a, s'))
 
 -- firstP :: Prism' s (a, b) -> Iso' a a' -> Prism' s (a', b)
 -- firstP p i = prism' (\z -> review p $ z & _1 %~ view (from i)) $ \s -> do
@@ -99,8 +102,8 @@ string str = isoP (fmap (str, ) . stripPrefix str)
 --     )
 --   _
 
-appP
-    :: Iso' s (s', AnIso' a b)
-    -> Iso' s' (s'', a)
-    -> Iso' s (s'', b)
-appP pf pa = iso undefined $ \(s'', b) -> _
+-- appP
+--     :: Iso' s (s', AnIso' a b)
+--     -> Iso' s' (s'', a)
+--     -> Iso' s (s'', b)
+-- appP pf pa = iso undefined $ \(s'', b) -> _
