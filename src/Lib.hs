@@ -11,19 +11,35 @@ import Control.Arrow hiding (first, second)
 import Data.Bifunctor
 import Data.Char
 import Control.Lens hiding (cons)
+import Control.Applicative ((<|>))
 import Data.Tuple
 
 type Parser s a = Iso' (Maybe s) (Maybe (a, s))
 
-
 ffmap :: (Functor f, Bifunctor p) => (a -> b) -> f (p a c) -> f (p b c)
 ffmap f = fmap (first f)
 
--- space :: Parser String ()
--- space = prism' ((' ' :) . snd)
---                ( ffmap (const ())
---                . preview (many $ satisfy isSpace)
---                )
+space :: Parser String ()
+space = isoP to' from'
+  where
+    to' :: String -> Maybe ((), String)
+    to' (' ' : rest) = Just ((), rest)
+    from' :: ((), String) -> Maybe String
+    from' ((), s) = Just $ s <> " "
+  --   to' = ((' ' :) . snd)
+  --              ( ffmap (const ())
+  --              . preview (many $ satisfy isSpace)
+  --              )
+  --   from' = ((' ' :) . snd)
+
+takeLeft :: Iso' (Maybe ((a, ()), s)) (Maybe (a, s))
+takeLeft = mapping (swapped . mapping (iso fst (,()))) . mapping swapped
+
+-- takeRight :: Iso' (Maybe ((), a)) (Maybe a)
+-- takeRight = mapping swapped . takeLeft
+
+-- isoJoin :: Iso' (Iso' a b, a) b
+
 
 cons :: (a, [a]) -> [a]
 cons = uncurry (:)
@@ -80,6 +96,15 @@ tupleP pa pb = isoP to' from'
     from' ((a, b), s) = do
         s' <- review pb (Just (b, s))
         review pa (Just (a, s'))
+
+eitherP :: forall s a b. Monoid s => Parser s a -> Parser s b -> Parser s (Either a b)
+eitherP pa pb = isoP to' from'
+  where
+    to' :: s -> Maybe (Either a b, s)
+    to' s = (first Left <$> Just s ^. pa) <|> (first Right <$> Just s ^. pb)
+    from' :: (Either a b, s) -> Maybe s
+    from' (Left a, s) = review pa (Just (a, s))
+    from' (Right b, s) = review pb (Just (b, s))
 
 -- firstP :: Prism' s (a, b) -> Iso' a a' -> Prism' s (a', b)
 -- firstP p i = prism' (\z -> review p $ z & _1 %~ view (from i)) $ \s -> do
